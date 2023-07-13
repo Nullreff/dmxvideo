@@ -1,5 +1,7 @@
-
-use std::iter;
+use std::{iter, thread};
+use crossbeam_channel::{bounded, Sender, Receiver};
+use std::net::{UdpSocket, ToSocketAddrs};
+use artnet_protocol::{ArtCommand, Poll};
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Material2d, Material2dKey, Material2dPlugin},
@@ -15,6 +17,21 @@ use bevy::{
     asset::ChangeWatcher,
 };
 
+const VALUE_SIZE : usize = 256;
+const UNIVERSE_SIZE : usize = 512;
+const MAX_UNIVERSES : usize = 512;
+
+struct DmxData {
+    universe: u16,
+    data: Vec<u8>,
+}
+
+#[derive(Resource, Deref)]
+struct StreamReceiver(Receiver<DmxData>);
+
+#[derive(Event)]
+struct StreamEvent(DmxData);
+
 fn main() {
     App::new()
         .add_plugins((
@@ -24,7 +41,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, test_system)
+        .add_systems(Update, read_stream)
         .run();
     
 }
@@ -49,19 +66,66 @@ fn window_plugin() -> PluginGroupBuilder {
     })
 }
 
-fn generate_image(color: u8) -> Image {
+fn generate_dmx_image(color: u8) -> Image {
     Image::new(
         Extent3d {
-            width: 48,
-            height: 1,
+            width: UNIVERSE_SIZE as u32,
+            height: MAX_UNIVERSES as u32,
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
-        iter::repeat(0).take(48)
-            .flat_map(|a| vec![color, color, color, 255])
+        iter::repeat(0).take(UNIVERSE_SIZE * MAX_UNIVERSES)
+            .flat_map(|a| vec![0, 0, 0, 255])
             .collect::<Vec<u8>>(),
         TextureFormat::Rgba8UnormSrgb,
     )
+}
+
+fn setup_artnet(tx: Sender<DmxData>) {
+
+    let socket = UdpSocket::bind(("0.0.0.0", 6454)).unwrap();
+    match socket.set_nonblocking(true) {
+        Ok(_) => info!("Activated non-blocking mode"),
+        Err(e) => info!("Could not activate non-blocking mode: {}", e),
+    };
+
+    info!("Artnet listener started");
+
+    std::thread::spawn(move || loop {
+        let mut buffer = [0u8; 1024];
+        if let Ok((length, addr)) = socket.recv_from(&mut buffer) {
+
+        let command = ArtCommand::from_buffer(&buffer[..length]).unwrap();
+
+        info!("Artnet command received {:?}", command);
+        
+        if let ArtCommand::Output(o) = command {
+            if o.port_address >= (MAX_UNIVERSES as u16).try_into().unwrap() {
+                let addr : u16 = o.port_address.into();
+                warn!("Received artnet on universe {}, outside the limit of {}",
+                    addr, MAX_UNIVERSES);
+                continue;
+            }
+
+            if *o.length as usize != UNIVERSE_SIZE {
+                warn!("Received artnet data with length {}, expected {}", *o.length, UNIVERSE_SIZE);
+                continue;
+            }
+
+            let data = DmxData {
+                universe: o.port_address.into(),
+                data: o.data.as_ref().to_vec(),
+
+            };
+
+            warn!("Received data for universe {}", data.universe);
+
+            tx.send(data).unwrap();
+        } else {
+            thread::sleep(Duration::from_millis(1));
+        }
+        }
+    });
 }
 
 fn setup(
@@ -72,7 +136,7 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    let image = generate_image(255);
+    let image = generate_dmx_image(255);
     let handle = images.add(image);
 
     commands.spawn(
@@ -86,19 +150,29 @@ fn setup(
         }
     )
     .insert(DmxGradient{});
+
+
+    let (tx, rx) = bounded::<DmxData>(10);
+    setup_artnet(tx);
+    commands.insert_resource(StreamReceiver(rx));
 }
 
-/*
-fn dmx_system(time: Res<Time>, mut query: Query<(&mut DmxGradient, &mut MaterialMesh2dBundle<Image>)>, mut images: ResMut<Assets<Image>>,) {
-    for (mut dmx_gradient, mut bundle) in &mut query {
-        let color = (((time.elapsed_seconds() % 5.0) / 5.0) * 255.0) as u8;
-        let image = generate_image(color);
-        let texture = &bundle.material.texture;
-        texture = images.set(&texture, image);
+// This system reads from the receiver and sends events to Bevy
+fn read_stream(
+    mut materials: ResMut<Assets<MultiColorMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+    query: Query<&Handle<MultiColorMaterial>, With<DmxGradient>>,
+    receiver: Res<StreamReceiver>
+) {
+    let material = materials.get_mut(query.single()).unwrap();
+    let image = images.get_mut(&material.texture).unwrap();
+
+    for from_stream in receiver.try_iter() {
+        image
+            .data
+            .copy_from_slice(from_stream.data.as_slice());
     }
 }
-*/
-
 
 fn test_system(
     time: Res<Time>,
