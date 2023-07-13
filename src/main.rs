@@ -69,12 +69,12 @@ fn window_plugin() -> PluginGroupBuilder {
 fn generate_dmx_image(color: u8) -> Image {
     Image::new(
         Extent3d {
-            width: UNIVERSE_SIZE as u32,
-            height: MAX_UNIVERSES as u32,
+            width: UNIVERSE_SIZE as u32 / 4,
+            height: 1, //MAX_UNIVERSES as u32,
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
-        iter::repeat(0).take(UNIVERSE_SIZE * MAX_UNIVERSES)
+        iter::repeat(0).take(UNIVERSE_SIZE / 4)
             .flat_map(|a| vec![0, 0, 0, 255])
             .collect::<Vec<u8>>(),
         TextureFormat::Rgba8UnormSrgb,
@@ -84,21 +84,14 @@ fn generate_dmx_image(color: u8) -> Image {
 fn setup_artnet(tx: Sender<DmxData>) {
 
     let socket = UdpSocket::bind(("0.0.0.0", 6454)).unwrap();
-    match socket.set_nonblocking(true) {
-        Ok(_) => info!("Activated non-blocking mode"),
-        Err(e) => info!("Could not activate non-blocking mode: {}", e),
-    };
 
     info!("Artnet listener started");
 
     std::thread::spawn(move || loop {
         let mut buffer = [0u8; 1024];
-        if let Ok((length, addr)) = socket.recv_from(&mut buffer) {
-
+        let (length, addr) = socket.recv_from(&mut buffer).unwrap();
         let command = ArtCommand::from_buffer(&buffer[..length]).unwrap();
 
-        info!("Artnet command received {:?}", command);
-        
         if let ArtCommand::Output(o) = command {
             if o.port_address >= (MAX_UNIVERSES as u16).try_into().unwrap() {
                 let addr : u16 = o.port_address.into();
@@ -118,12 +111,7 @@ fn setup_artnet(tx: Sender<DmxData>) {
 
             };
 
-            warn!("Received data for universe {}", data.universe);
-
             tx.send(data).unwrap();
-        } else {
-            thread::sleep(Duration::from_millis(1));
-        }
         }
     });
 }
@@ -168,6 +156,9 @@ fn read_stream(
     let image = images.get_mut(&material.texture).unwrap();
 
     for from_stream in receiver.try_iter() {
+        if from_stream.universe != 0 {
+            continue;
+        }
         image
             .data
             .copy_from_slice(from_stream.data.as_slice());
