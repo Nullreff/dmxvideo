@@ -20,6 +20,9 @@ use bevy::{
 const VALUE_SIZE : usize = 256;
 const UNIVERSE_SIZE : usize = 512;
 const MAX_UNIVERSES : usize = 512;
+const CHANNELS : usize = 4;
+const IMAGE_WIDTH : usize = UNIVERSE_SIZE * CHANNELS;
+const IMAGE_HEIGHT : usize = MAX_UNIVERSES;
 
 struct DmxData {
     universe: u16,
@@ -69,15 +72,14 @@ fn window_plugin() -> PluginGroupBuilder {
 fn generate_dmx_image(color: u8) -> Image {
     Image::new(
         Extent3d {
-            width: UNIVERSE_SIZE as u32 / 4,
-            height: 1, //MAX_UNIVERSES as u32,
+            width: IMAGE_WIDTH as u32,
+            height: IMAGE_HEIGHT as u32,
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
-        iter::repeat(0).take(UNIVERSE_SIZE / 4)
-            .flat_map(|a| vec![0, 0, 0, 255])
+        iter::repeat(0).take(IMAGE_WIDTH * IMAGE_HEIGHT)
             .collect::<Vec<u8>>(),
-        TextureFormat::Rgba8UnormSrgb,
+        TextureFormat::Rgba8Uint,
     )
 }
 
@@ -132,7 +134,7 @@ fn setup(
             mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
             transform: Transform::default().with_scale(Vec3::splat(128.)),
             material: materials.add(MultiColorMaterial {
-                texture: handle,
+                dmx_data: handle,
             }),
             ..default()
         }
@@ -153,15 +155,17 @@ fn read_stream(
     receiver: Res<StreamReceiver>
 ) {
     let material = materials.get_mut(query.single()).unwrap();
-    let image = images.get_mut(&material.texture).unwrap();
+    let image = images.get_mut(&material.dmx_data).unwrap();
 
     for from_stream in receiver.try_iter() {
         if from_stream.universe != 0 {
             continue;
         }
-        image
-            .data
-            .copy_from_slice(from_stream.data.as_slice());
+        let universe = from_stream.universe as usize;
+        let start = (universe - 1) * IMAGE_WIDTH;
+        let end = start + UNIVERSE_SIZE;
+        let incoming_data = from_stream.data.iter().cloned().flat_map(|d| [d, d, d, d]);
+        image.data.splice(start..end, incoming_data);
     }
 }
 
@@ -173,7 +177,7 @@ fn test_system(
 ) {
     let material = materials.get_mut(webview_query.single()).unwrap();
 
-    let image = images.get_mut(&material.texture).unwrap();
+    let image = images.get_mut(&material.dmx_data).unwrap();
 
     let color = (((time.elapsed_seconds() % 5.0) / 5.0) * 255.0) as u8;
     image
@@ -210,7 +214,7 @@ impl Material2d for MultiColorMaterial {
 pub struct MultiColorMaterial {
     #[texture(0)]
     #[sampler(1)]
-    texture: Handle<Image>,
+    dmx_data: Handle<Image>,
 }
 
 #[derive(Component)]

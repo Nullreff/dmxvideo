@@ -9,9 +9,7 @@
 var<uniform> view: View;
 
 @group(1) @binding(0)
-var texture: texture_2d<f32>;
-@group(1) @binding(1)
-var texture_sampler: sampler;
+var data: array<u8, 512>;
 
 struct Vertex {
     @location(0) position: vec3<f32>,
@@ -41,7 +39,7 @@ fn fragment(input: FragmentInput) -> @location(0) vec4<f32> {
     //return mix(vec4(1.0,1.0,1.0,1.0), vec4(1.0,1.0,1.0,1.0), smoothstep(t, t+0.01, 0));
     let width = view.viewport[2];
     let height = view.viewport[3];
-    let color = textureSample(texture, texture_sampler, vec2(0.0, 0.0));
+    let color = vec4(data[0], data[1], data[2], 1.0);
     return color;
     //return vec4(input.position[0] / width, input.position[1] / height, 0.0, 1.0);
 }
