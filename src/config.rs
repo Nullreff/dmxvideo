@@ -1,5 +1,14 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
+use bevy::ecs::system::Commands;
+use std::{
+    env,
+    fs,
+    process,
+};
+use bevy::ecs::system::Resource;
+use bevy::prelude::Deref;
+
 
 pub const VALUE_SIZE : usize = 256;
 pub const UNIVERSE_SIZE : usize = 512;
@@ -69,13 +78,13 @@ fn sample_config() -> Config {
 
 
 #[derive(Serialize, Deserialize)]
-struct Network {
+pub struct Network {
     address: String,
     port: u16,
 }
 
 #[derive(Serialize, Deserialize)]
-enum Channel {
+pub enum Channel {
     Dimmer(usize),
     Red(usize),
     Green(usize),
@@ -84,68 +93,68 @@ enum Channel {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Profile {
+pub struct Profile {
     name: String,
     channels: Vec<Channel>,
 }
 
 #[derive(Serialize, Deserialize)]
-struct MappingGroup {
+pub struct MappingGroup {
     profile: String,
     patch: Patch,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Mapping {
+pub struct Mapping {
     from: MappingGroup,
     to: MappingGroup,
     count: usize,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Position {
+pub struct Position {
     x: usize,
     y: usize,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Size {
+pub struct Size {
     width: usize,
     height: usize,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Grid {
+pub struct Grid {
     rows: usize,
     columns: usize,
 }
 
 #[derive(Serialize, Deserialize)]
-enum Direction {
+pub enum Direction {
     Horizontal,
     Vertical,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Layout {
+pub struct Layout {
     direction: Direction,
     count: usize,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Patch {
+pub struct Patch {
     universe: usize,
     address: usize,
 }
 
 #[derive(Serialize, Deserialize)]
-enum Mode {
+pub enum Mode {
     Dimmer,
     Rgb,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Fixture {
+pub struct Fixture {
     position: Position,
     size: Size,
     grid: Grid,
@@ -154,7 +163,7 @@ struct Fixture {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Output {
+pub struct Output {
     name: String,
     width: usize,
     height: usize,
@@ -162,26 +171,43 @@ struct Output {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Config {
+pub struct Config {
     network: Network,
     profiles: Vec<Profile>,
     mappings: Vec<Mapping>,
     outputs: Vec<Output>,
 }
 
-fn load_config(path: &str) -> Result<()> {
-    let input = std::fs::read_to_string(&path).unwrap();
+#[derive(Resource, Deref)]
+pub struct ConfigResource(Config);
 
-    Ok(())
+pub fn load_config(config: &str) -> Result<Config> {
+    serde_json::from_str(config)
 }
 
-pub fn save_config(path: &str) -> Result<()> {
-    let config = sample_config();
-    // Serialize it to a JSON string.
-    let j = serde_json::to_string(&config)?;
+pub fn save_config(config: &Config) -> Result<String> {
+    serde_json::to_string(&config)
+}
 
-    // Print, write to a file, or send to an HTTP server.
-    println!("{}", j);
+pub fn setup_config(
+    mut commands: Commands,
+) {
+    let args: Vec<String> = env::args().collect();
 
-    Ok(())
+    if args.len() < 2 {
+        eprintln!("Usage: {} <config file>", args[0]);
+        process::exit(1);
+    }
+
+    let filename = &args[1];
+    let input = match fs::read_to_string(filename) {
+        Ok(contents) => contents,
+        Err(e) => {
+            eprintln!("Error reading file {}: {}", filename, e);
+            process::exit(1);
+        }
+    };
+
+    let config = load_config(&input).unwrap();
+    commands.insert_resource(ConfigResource(config));
 }

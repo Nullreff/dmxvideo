@@ -8,9 +8,10 @@ use bevy::{
     asset::ChangeWatcher,
 };
 
-use dmxvideo::{save_config};
+use dmxvideo::{setup_config};
 use dmxvideo::{setup_network};
 use dmxvideo::{setup_shader, update_shader, DmxMaterial};
+
 
 pub fn window_plugin() -> PluginGroupBuilder {
     DefaultPlugins.set(WindowPlugin {
@@ -33,10 +34,6 @@ pub fn window_plugin() -> PluginGroupBuilder {
 }
 
 fn main() {
-
-    save_config("config.json");
-
-    return;
     App::new()
         .add_plugins((
             window_plugin(),
@@ -44,6 +41,7 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin,
         ))
+        .add_systems(Startup, setup_config)
         .add_systems(Startup, setup_shader)
         .add_systems(Startup, setup_network)
         .add_systems(Update, update_shader)
