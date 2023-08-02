@@ -98,7 +98,7 @@ pub fn update_shader(
 
     for from_stream in receiver.try_iter() {
         let universe = from_stream.universe as usize;
-        let start = (universe - 1) * IMAGE_WIDTH;
+        let start = universe * IMAGE_WIDTH;
         let end = start + UNIVERSE_SIZE;
         let incoming_data = from_stream.data.iter().cloned().flat_map(|d| [d, d, d, d]);
         image.data.splice(start..end, incoming_data);
