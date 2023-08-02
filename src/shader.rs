@@ -9,7 +9,7 @@ use bevy::{
 };
 use crate::config::*;
 use crate::network::{DmxData, StreamReceiver};
-use std::{iter};
+use std::iter;
 
 const SHADER_NAME : &str = "shaders/dmx_material.wgsl";
 

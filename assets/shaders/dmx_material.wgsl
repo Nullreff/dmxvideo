@@ -9,10 +9,10 @@
 var<uniform> view: View;
 
 @group(1) @binding(0)
-var data: array<u8, 512>;
+var dmx_data: Texture2d
 
 struct Vertex {
-    @location(0) position: vec3<f32>,
+    @location(0) position: vec4<f32>
 };
 
 struct VertexOutput {

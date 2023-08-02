@@ -8,6 +8,7 @@ use bevy::{
     asset::ChangeWatcher,
 };
 
+use dmxvideo::{save_config};
 use dmxvideo::{setup_network};
 use dmxvideo::{setup_shader, update_shader, DmxMaterial};
 
@@ -32,6 +33,10 @@ pub fn window_plugin() -> PluginGroupBuilder {
 }
 
 fn main() {
+
+    save_config("config.json");
+
+    return;
     App::new()
         .add_plugins((
             window_plugin(),

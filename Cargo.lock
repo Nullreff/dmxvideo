@@ -1450,6 +1450,8 @@ dependencies = [
  "bevy",
  "crossbeam",
  "crossbeam-channel",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
