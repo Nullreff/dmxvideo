@@ -1,18 +1,9 @@
-use std::{iter, thread};
-use crossbeam_channel::{bounded, Sender, Receiver};
-use std::net::{UdpSocket, ToSocketAddrs};
-use artnet_protocol::{ArtCommand, Poll};
 use bevy::{
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Material2d, Material2dKey, Material2dPlugin},
+    sprite::{Material2dPlugin},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
+    window::{PresentMode, WindowTheme},
     app::PluginGroupBuilder,
-    reflect::{TypePath, TypeUuid},
-    render::{
-        render_resource::{AsBindGroup, ShaderRef, RenderPipelineDescriptor, SpecializedMeshPipelineError, Extent3d, TextureDimension, TextureFormat},
-        mesh::{MeshVertexBufferLayout, MeshVertexAttribute},
-    },
     utils::Duration,
     asset::ChangeWatcher,
 };

@@ -1,21 +1,13 @@
-use std::{iter, thread};
-use crossbeam_channel::{bounded, Sender, Receiver};
-use std::net::{UdpSocket, ToSocketAddrs};
-use artnet_protocol::{ArtCommand, Poll};
 use bevy::{
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Material2d, Material2dKey, Material2dPlugin},
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
-    app::PluginGroupBuilder,
+    sprite::{MaterialMesh2dBundle, Material2d, Material2dKey},
     reflect::{TypePath, TypeUuid},
     render::{
         render_resource::{AsBindGroup, ShaderRef, RenderPipelineDescriptor, SpecializedMeshPipelineError, Extent3d, TextureDimension, TextureFormat},
-        mesh::{MeshVertexBufferLayout, MeshVertexAttribute},
+        mesh::{MeshVertexBufferLayout},
     },
-    utils::Duration,
-    asset::ChangeWatcher,
 };
+use std::{iter};
 
 use crate::config::*;
 use crate::network::{DmxData, StreamReceiver};
@@ -34,7 +26,7 @@ fn generate_dmx_image(color: u8) -> Image {
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
-        iter::repeat(0).take(DMX_SIZE)
+        iter::repeat(color).take(DMX_SIZE)
             .collect::<Vec<u8>>(),
         TextureFormat::Rgba8Uint,
     )
@@ -48,7 +40,7 @@ pub fn setup_shader(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    let image = generate_dmx_image(255);
+    let image = generate_dmx_image(0);
     let handle = images.add(image);
 
     commands.spawn(
@@ -85,24 +77,6 @@ pub fn update_shader(
     }
 }
 
-fn test_system(
-    time: Res<Time>,
-    mut materials: ResMut<Assets<MultiColorMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    webview_query: Query<&Handle<MultiColorMaterial>, With<DmxGradient>>,
-) {
-    let material = materials.get_mut(webview_query.single()).unwrap();
-
-    let image = images.get_mut(&material.dmx_data).unwrap();
-
-    let color = (((time.elapsed_seconds() % 5.0) / 5.0) * 255.0) as u8;
-    image
-        .data
-        .copy_from_slice(&[color, color, color, 255].repeat(48 * 1));
-}
-
-/// The Material trait is very configurable, but comes with sensible defaults for all methods.
-/// You only need to implement functions for features that need non-default behavior. See the Material api docs for details!
 impl Material2d for MultiColorMaterial {
     fn fragment_shader() -> ShaderRef {
         "shaders/multi_color_material.wgsl".into()
@@ -124,7 +98,6 @@ impl Material2d for MultiColorMaterial {
     }
 }
 
-// This is the struct that will be passed to your shader
 #[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
 #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 pub struct MultiColorMaterial {

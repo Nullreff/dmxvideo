@@ -1,21 +1,7 @@
-use std::{iter, thread};
+use artnet_protocol::ArtCommand;
+use bevy::prelude::*;
 use crossbeam_channel::{bounded, Sender, Receiver};
-use std::net::{UdpSocket, ToSocketAddrs};
-use artnet_protocol::{ArtCommand, Poll};
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Material2d, Material2dKey, Material2dPlugin},
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
-    app::PluginGroupBuilder,
-    reflect::{TypePath, TypeUuid},
-    render::{
-        render_resource::{AsBindGroup, ShaderRef, RenderPipelineDescriptor, SpecializedMeshPipelineError, Extent3d, TextureDimension, TextureFormat},
-        mesh::{MeshVertexBufferLayout, MeshVertexAttribute},
-    },
-    utils::Duration,
-    asset::ChangeWatcher,
-};
+use std::net::UdpSocket;
 
 pub struct DmxData {
     pub universe: u16,
@@ -35,7 +21,7 @@ fn setup_artnet(tx: Sender<DmxData>) {
 
     std::thread::spawn(move || loop {
         let mut buffer = [0u8; 1024];
-        let (length, addr) = socket.recv_from(&mut buffer).unwrap();
+        let (length, _addr) = socket.recv_from(&mut buffer).unwrap();
         let command = ArtCommand::from_buffer(&buffer[..length]).unwrap();
 
         if let ArtCommand::Output(o) = command {
