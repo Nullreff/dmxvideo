@@ -97,9 +97,6 @@ pub fn update_shader(
     let image = images.get_mut(&material.dmx_data).unwrap();
 
     for from_stream in receiver.try_iter() {
-        if from_stream.universe != 0 {
-            continue;
-        }
         let universe = from_stream.universe as usize;
         let start = (universe - 1) * IMAGE_WIDTH;
         let end = start + UNIVERSE_SIZE;

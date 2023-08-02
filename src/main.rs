@@ -43,5 +43,4 @@ fn main() {
         .add_systems(Startup, setup_network)
         .add_systems(Update, update_shader)
         .run();
-    
 }

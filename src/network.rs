@@ -19,7 +19,7 @@ impl DmxData {
 pub struct StreamReceiver(Receiver<DmxData>);
 
 fn setup_artnet(tx: Sender<DmxData>) {
-    let socket = UdpSocket::bind(("0.0.0.0", 6454)).unwrap();
+    let socket = UdpSocket::bind((NETWORK_ADDRESS, NETWORK_PORT)).unwrap();
 
     info!("Artnet listener started");
 
