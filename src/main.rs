@@ -9,7 +9,7 @@ use bevy::{
 };
 
 use dmxvideo::{setup_network};
-use dmxvideo::{setup_shader, update_shader, MultiColorMaterial};
+use dmxvideo::{setup_shader, update_shader, DmxMaterial};
 
 pub fn window_plugin() -> PluginGroupBuilder {
     DefaultPlugins.set(WindowPlugin {
@@ -35,7 +35,7 @@ fn main() {
     App::new()
         .add_plugins((
             window_plugin(),
-            Material2dPlugin::<MultiColorMaterial>::default(),
+            Material2dPlugin::<DmxMaterial>::default(),
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin,
         ))

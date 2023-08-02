@@ -1,5 +1,6 @@
 use artnet_protocol::ArtCommand;
 use bevy::prelude::*;
+use crate::config::*;
 use crossbeam_channel::{bounded, Sender, Receiver};
 use std::net::UdpSocket;
 
@@ -8,8 +9,11 @@ pub struct DmxData {
     pub data: Vec<u8>,
 }
 
-use crate::config::*;
-
+impl DmxData {
+    fn new(universe: u16, data: Vec<u8>) -> DmxData {
+        DmxData { universe, data }
+    }
+}
 
 #[derive(Resource, Deref)]
 pub struct StreamReceiver(Receiver<DmxData>);
@@ -37,11 +41,7 @@ fn setup_artnet(tx: Sender<DmxData>) {
                 continue;
             }
 
-            let data = DmxData {
-                universe: o.port_address.into(),
-                data: o.data.as_ref().to_vec(),
-
-            };
+            let data = DmxData::new(o.port_address.into(), o.data.as_ref().to_vec());
 
             tx.send(data).unwrap();
         }

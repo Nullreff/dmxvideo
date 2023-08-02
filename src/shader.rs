@@ -7,16 +7,47 @@ use bevy::{
         mesh::{MeshVertexBufferLayout},
     },
 };
-use std::{iter};
-
 use crate::config::*;
 use crate::network::{DmxData, StreamReceiver};
+use std::{iter};
+
+const SHADER_NAME : &str = "shaders/dmx_material.wgsl";
 
 #[derive(Component)]
 pub struct DmxGradient { }
 
 #[derive(Event)]
 struct StreamEvent(DmxData);
+
+
+#[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
+#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+pub struct DmxMaterial {
+    #[texture(0)]
+    #[sampler(1)]
+    dmx_data: Handle<Image>,
+}
+
+impl Material2d for DmxMaterial {
+    fn fragment_shader() -> ShaderRef {
+        SHADER_NAME.into()
+    }
+    fn vertex_shader() -> ShaderRef {
+        SHADER_NAME.into()
+    }
+
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        layout: &MeshVertexBufferLayout,
+        _key: Material2dKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        let vertex_layout = layout.get_layout(&[
+            Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
+        ])?;
+        descriptor.vertex.buffers = vec![vertex_layout];
+        Ok(())
+    }
+}
 
 fn generate_dmx_image(color: u8) -> Image {
     Image::new(
@@ -35,7 +66,7 @@ fn generate_dmx_image(color: u8) -> Image {
 pub fn setup_shader(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<MultiColorMaterial>>,
+    mut materials: ResMut<Assets<DmxMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
     commands.spawn(Camera2dBundle::default());
@@ -47,7 +78,7 @@ pub fn setup_shader(
         MaterialMesh2dBundle {
             mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
             transform: Transform::default().with_scale(Vec3::splat(128.)),
-            material: materials.add(MultiColorMaterial {
+            material: materials.add(DmxMaterial {
                 dmx_data: handle,
             }),
             ..default()
@@ -57,9 +88,9 @@ pub fn setup_shader(
 }
 
 pub fn update_shader(
-    mut materials: ResMut<Assets<MultiColorMaterial>>,
+    mut materials: ResMut<Assets<DmxMaterial>>,
     mut images: ResMut<Assets<Image>>,
-    query: Query<&Handle<MultiColorMaterial>, With<DmxGradient>>,
+    query: Query<&Handle<DmxMaterial>, With<DmxGradient>>,
     receiver: Res<StreamReceiver>
 ) {
     let material = materials.get_mut(query.single()).unwrap();
@@ -75,33 +106,4 @@ pub fn update_shader(
         let incoming_data = from_stream.data.iter().cloned().flat_map(|d| [d, d, d, d]);
         image.data.splice(start..end, incoming_data);
     }
-}
-
-impl Material2d for MultiColorMaterial {
-    fn fragment_shader() -> ShaderRef {
-        "shaders/multi_color_material.wgsl".into()
-    }
-    fn vertex_shader() -> ShaderRef {
-        "shaders/multi_color_material.wgsl".into()
-    }
-
-    fn specialize(
-        descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
-        _key: Material2dKey<Self>,
-    ) -> Result<(), SpecializedMeshPipelineError> {
-        let vertex_layout = layout.get_layout(&[
-            Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
-        ])?;
-        descriptor.vertex.buffers = vec![vertex_layout];
-        Ok(())
-    }
-}
-
-#[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
-pub struct MultiColorMaterial {
-    #[texture(0)]
-    #[sampler(1)]
-    dmx_data: Handle<Image>,
 }
